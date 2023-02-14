@@ -121,22 +121,31 @@ public class App {
     private static String finishMonth;
 
     public static void main(String[] args) throws IOException, GeneralSecurityException, ParseException {
-        // Open the file
         try {
+            // Set the look and feel to the system look and feel 
             UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
         } catch (Exception e) {
-            // Handle exception
+            e.printStackTrace();
         }
+        // Create the string to hold the email
         String email = "";
-
+        // Create the file chooser
         JFileChooser fileChooser = new JFileChooser();
+        // Set the default directory to the downloads folder
         fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + "/Downloads"));
+        // Show the file chooser
         int result = fileChooser.showOpenDialog(null);
+        // If the user selects a file
         if (result == JFileChooser.APPROVE_OPTION) {
+            // Get the path of the file
             File selectedFile = fileChooser.getSelectedFile();
+            // Get the absolute path of the file
             String path = selectedFile.getAbsolutePath();
+            // Load the file into a PDDocument
             PDDocument document = PDDocument.load(new File(path));
+            // Create a PDFTextStripper to strip the text from the PDF
             PDFTextStripper pdfStripper = new PDFTextStripper();
+            // Get the text from the PDF
             email = pdfStripper.getText(document);
             document.close();
         }
@@ -164,6 +173,7 @@ public class App {
             // Get the start year
             startYear = yearsMatch.group(2);
         }
+        // Cycle through the dates and times and add them to the array
         while (datesMatch.find()) {
 
             String beginYear = startYear;
@@ -273,29 +283,32 @@ public class App {
             daysWorkedCtr += 2;
         }
 
+        // Create the NetHttpTransport
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
 
+        // Create the Calendar service
         Calendar service = new Calendar.Builder(HTTP_TRANSPORT, JSON_FACTORY,
                 getCredentials(HTTP_TRANSPORT))
                 .setApplicationName("applicationName").build();
 
+        // Cycle through the dates and times and add them to the calendar
         for (int i = 0; i < daysWorkedCtr; i += 2) {
-
+            // Create the event
             Event event = new Event()
                     .setSummary("Work");
-
+            // Set the start time and date
             DateTime startDateTime = new DateTime(datesTimes[i]);
             EventDateTime starting = new EventDateTime()
                     .setDateTime(startDateTime);
             event.setStart(starting);
-
+            // Set the end time and date
             DateTime endDateTime = new DateTime(datesTimes[i + 1]);
             EventDateTime ending = new EventDateTime()
                     .setDateTime(endDateTime);
             event.setEnd(ending);
-
+            // Set the calendar ID
             String calendarId = "withers.trevor@gmail.com";
-
+            // Check if the event already exists
             if (!checkIfEventExists(service, calendarId, event)) {
                 // Create the event if it doesn't exist
                 service.events().insert(calendarId, event).execute();
