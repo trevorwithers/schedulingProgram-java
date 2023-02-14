@@ -18,6 +18,10 @@ import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventDateTime;
 import com.google.api.services.calendar.model.Events;
 
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.text.PDFTextStripper;
+
+
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -31,6 +35,10 @@ import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
+
+import javax.swing.JFileChooser;
+import javax.swing.UIManager;
+
 import java.io.File;
 import java.io.FileInputStream;
 import java.util.Scanner;
@@ -87,47 +95,64 @@ public class App {
         return credential;
     }
 
+    private static String day;
+    private static String finishMonth;
+
     public static void main(String[] args) throws IOException, GeneralSecurityException, ParseException {
-        File file = new File("src/main/resources/email.txt");
-        Scanner scanner = new Scanner(file);
+        // Open the file
+        try {
+            UIManager.setLookAndFeel(UIManager.getSystemLookAndFeelClassName());
+        } catch (Exception e) {
+            // Handle exception
+        }
         String email = "";
-        while (scanner.hasNextLine()) {
-            email += scanner.nextLine() + "\n";
+
+        JFileChooser fileChooser = new JFileChooser();
+        fileChooser.setCurrentDirectory(new File(System.getProperty("user.home") + "/Downloads"));
+        int result = fileChooser.showOpenDialog(null);
+        if (result == JFileChooser.APPROVE_OPTION) {
+            File selectedFile = fileChooser.getSelectedFile();
+            String path = selectedFile.getAbsolutePath();
+            PDDocument document = PDDocument.load(new File(path));
+            PDFTextStripper pdfStripper = new PDFTextStripper();
+            email = pdfStripper.getText(document);
+            document.close();
         }
 
-        scanner.close();
-
-        // Feb 13: Monday 10:00PM - Tue 06:00AM, 4839 - Highway 15 Kingston, Prep Cook
+        // Create the pattern to find the dates and times
         Pattern patternFindDates = Pattern.compile(
                 "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\\s+(\\d{2})[a-z]*:\\s+(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday)\\s+(\\d{2}:\\d{2})([APM]+)\\s+-\\s+(Mon\\s+|Tue\\s+|Wed\\s+|Thu\\s+|Fri\\s+|Sat\\s+|Sun\\s+)?(\\d{2}:\\d{2})([APM]+)");
 
-        Matcher datesMatch = patternFindDates.matcher(email);
-
+        // Create the pattern to find the years
         Pattern patternFindYears = Pattern
                 .compile("Period:\\s+(\\w+)\\s+\\d+,\\s+(\\d+)\\s+-\\s+(\\w+)\\s+\\d+,\\s+(\\d+)");
+
+        // Create the matchers
+        Matcher datesMatch = patternFindDates.matcher(email);
         Matcher yearsMatch = patternFindYears.matcher(email);
+
+        // Create the arrays to hold the dates and times
         String[] datesTimes = new String[14];
-        int ctr = 0;
-        int numOvernights = 0;
-        int[] overNightStart = new int[7];
-        String[] overnights = new String[7];
-        String startMonth = "";
+        // Create the counter to keep track of the dates and times
+        int daysWorkedCtr = 0;
+        // Create the string to hold the start year
         String startYear = "";
-        String endYear = "";
+
         if (yearsMatch.find()) {
-            startMonth = yearsMatch.group(1);
+            // Get the start year
             startYear = yearsMatch.group(2);
-            endYear = yearsMatch.group(4);
         }
         while (datesMatch.find()) {
+
             String beginYear = startYear;
             String finishYear = startYear;
             String beginMonth = "";
-            String finishMonth = "";
-            String day = "";
+            finishMonth = "";
+            day = "";
             String startHour = "";
             String endHour = "";
 
+            // Convert the month to a number
             switch (datesMatch.group(1)) {
                 case "Jan":
                     beginMonth = "01";
@@ -166,80 +191,64 @@ public class App {
                     beginMonth = "12";
                     break;
             }
+
+            // Convert the start time to 24 hour time
             if (datesMatch.group(5).equals("PM")) {
                 startHour = datesMatch.group(4).substring(0, 2);
                 startHour = "" + (Integer.parseInt(startHour) + 12);
             } else {
                 startHour = datesMatch.group(4).substring(0, 2);
             }
+            // Convert the end time to 24 hour time
             if (datesMatch.group(8).equals("PM")) {
                 endHour = datesMatch.group(7).substring(0, 2);
                 endHour = "" + (Integer.parseInt(endHour) + 12);
             } else {
                 endHour = datesMatch.group(7).substring(0, 2);
             }
+
+            // Check if an overnight shift was worked
             if (datesMatch.group(6) != null) {
+                // Get the day
                 day = "" + datesMatch.group(2);
+                // Determine which month the shift ends in
                 if (beginMonth.equals("01") || beginMonth.equals("03") || beginMonth.equals("05")
-                        || beginMonth.equals("07")
-                        || beginMonth.equals("08") || beginMonth.equals("10") || beginMonth.equals("12")) {
-                    if (day.equals("31")) {
-                        day = "01";
-                        finishMonth = "" + (Integer.parseInt(beginMonth) + 1);
-                        if (Integer.parseInt(finishMonth) < 10) {
-                            finishMonth = "0" + finishMonth;
-                        }
-                        if (finishMonth.equals("13")) {
-                            finishYear = "" + (Integer.parseInt(startYear) + 1);
-                            finishMonth = "01";
-                        }
-                    } else {
-                        finishMonth = beginMonth;
-                        day = "" + (Integer.parseInt(day) + 1);
-                        if (Integer.parseInt(day) < 10) {
-                            day = "0" + day;
-                        }
+                        || beginMonth.equals("07") || beginMonth.equals("08") || beginMonth.equals("10")
+                        || beginMonth.equals("12")) {
+                    // Call the method to check the end month
+                    checkEndMonth("31", beginMonth);
+                    // Check if the month is December and set the year to the next year
+                    if (finishMonth.equals("13")) {
+                        // Set the year to the next year
+                        finishYear = "" + (Integer.parseInt(startYear) + 1);
+                        // Set the month to January
+                        finishMonth = "01";
                     }
+                    // Check if the month is April, June, September, or November
                 } else if (beginMonth.equals("04") || beginMonth.equals("06") || beginMonth.equals("09")
                         || beginMonth.equals("11")) {
-                    if (day.equals("30")) {
-                        day = "01";
-                        finishMonth = "" + (Integer.parseInt(beginMonth) + 1);
-                        if (Integer.parseInt(finishMonth) < 10) {
-                            finishMonth = "0" + finishMonth;
-                        }
-                    } else {
-                        finishMonth = beginMonth;
-                        day = "" + (Integer.parseInt(day) + 1);
-                        if (Integer.parseInt(day) < 10) {
-                            day = "0" + day;
-                        }
-                    }
-                } else if (beginMonth.equals("02")) {
-                    if (day.equals("28")) {
-                        day = "01";
-                        finishMonth = "" + (Integer.parseInt(beginMonth) + 1);
-                        if (Integer.parseInt(finishMonth) < 10) {
-                            finishMonth = "0" + finishMonth;
-                        }
-                    } else {
-                        finishMonth = beginMonth;
-                        day = "" + (Integer.parseInt(day) + 1);
-                        if (Integer.parseInt(day) < 10) {
-                            day = "0" + day;
-                        }
-                    }
+                    // Call the method to check the end month
+                    checkEndMonth("30", beginMonth);
+                } else {
+                    // Call the method to check the end month
+                    checkEndMonth("28", beginMonth);
+
                 }
             } else {
+                // Set the day if the shift is not overnight
                 day = datesMatch.group(2);
+                // Set the finish month to the begin month if the shift is not overnight
                 finishMonth = beginMonth;
             }
-            datesTimes[ctr] = beginYear + "-" + beginMonth + "-" + datesMatch.group(2) + "T" + startHour
+            // Add the start time and date to the array in Google Calendar format
+            datesTimes[daysWorkedCtr] = beginYear + "-" + beginMonth + "-" + datesMatch.group(2) + "T" + startHour
                     + ":00:00-05:00";
-            datesTimes[ctr + 1] = finishYear + "-" + finishMonth + "-" + day + "T" + endHour + ":00:00-05:00";
-            System.out.println(datesTimes[ctr]);
-            System.out.println(datesTimes[ctr + 1]);
-            ctr += 2;
+            // Add the end time and date to the array in Google Calendar format
+            datesTimes[daysWorkedCtr + 1] = finishYear + "-" + finishMonth + "-" + day + "T" + endHour + ":00:00-05:00";
+            System.out.println(datesTimes[daysWorkedCtr]);
+            System.out.println(datesTimes[daysWorkedCtr + 1]);
+            // Increment the counter by 2 to add the next start and end time
+            daysWorkedCtr += 2;
         }
 
         final NetHttpTransport HTTP_TRANSPORT = GoogleNetHttpTransport.newTrustedTransport();
@@ -247,25 +256,51 @@ public class App {
         Calendar service = new Calendar.Builder(HTTP_TRANSPORT, JSON_FACTORY,
                 getCredentials(HTTP_TRANSPORT))
                 .setApplicationName("applicationName").build();
-        for (int i = 0; i < ctr; i+=2) {
+        /*
+         * for (int i = 0; i < daysWorkedCtr; i+=2) {
+         * 
+         * Event event = new Event()
+         * .setSummary("Work");
+         * 
+         * DateTime startDateTime = new DateTime(datesTimes[i]);
+         * EventDateTime starting = new EventDateTime()
+         * .setDateTime(startDateTime);
+         * event.setStart(starting);
+         * 
+         * DateTime endDateTime = new DateTime(datesTimes[i + 1]);
+         * EventDateTime ending = new EventDateTime()
+         * .setDateTime(endDateTime);
+         * event.setEnd(ending);
+         * 
+         * String calendarId = "withers.trevor@gmail.com";
+         * event = service.events().insert(calendarId, event).execute();
+         * System.out.printf("Event created: %s\n", event.getHtmlLink());
+         * 
+         * }
+         */
+    }
 
-            Event event = new Event()
-                    .setSummary("Work");
-
-            DateTime startDateTime = new DateTime(datesTimes[i]);
-            EventDateTime starting = new EventDateTime()
-                    .setDateTime(startDateTime);
-            event.setStart(starting);
-
-            DateTime endDateTime = new DateTime(datesTimes[i + 1]);
-            EventDateTime ending = new EventDateTime()
-                    .setDateTime(endDateTime);
-            event.setEnd(ending);
-
-            String calendarId = "withers.trevor@gmail.com";
-            event = service.events().insert(calendarId, event).execute();
-            System.out.printf("Event created: %s\n", event.getHtmlLink());
-
+    // Method to check if the shift ends on the last day of the month
+    private static void checkEndMonth(String numDays, String beginMonth) {
+        // Check if the day is the last day of the month
+        if (day.equals(numDays)) {
+            // Set the day to the first day of the next month
+            day = "01";
+            // Set the month to the next month
+            finishMonth = "" + (Integer.parseInt(beginMonth) + 1);
+            // Check if the month is less than 10 and add a 0 if it is
+            if (Integer.parseInt(finishMonth) < 10) {
+                finishMonth = "0" + finishMonth;
+            }
+        } else {
+            // Set the month to the same month if it is not the last day of the month
+            finishMonth = beginMonth;
+            // Set the day to the next day
+            day = "" + (Integer.parseInt(day) + 1);
+            // Check if the day is less than 10 and add a 0 if it is
+            if (Integer.parseInt(day) < 10) {
+                day = "0" + day;
+            }
         }
     }
 }
