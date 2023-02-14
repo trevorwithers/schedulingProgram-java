@@ -3,9 +3,7 @@ import com.google.api.client.extensions.java6.auth.oauth2.AuthorizationCodeInsta
 import com.google.api.client.extensions.jetty.auth.oauth2.LocalServerReceiver;
 import com.google.api.client.googleapis.auth.oauth2.GoogleAuthorizationCodeFlow;
 import com.google.api.client.googleapis.auth.oauth2.GoogleClientSecrets;
-import com.google.api.client.googleapis.auth.oauth2.GoogleCredential;
 import com.google.api.client.googleapis.javanet.GoogleNetHttpTransport;
-import com.google.api.client.http.HttpTransport;
 import com.google.api.client.http.javanet.NetHttpTransport;
 import com.google.api.client.json.JsonFactory;
 import com.google.api.client.json.gson.GsonFactory;
@@ -13,7 +11,6 @@ import com.google.api.client.util.DateTime;
 import com.google.api.client.util.store.FileDataStoreFactory;
 import com.google.api.services.calendar.Calendar;
 import com.google.api.services.calendar.CalendarScopes;
-import com.google.api.services.calendar.model.CalendarListEntry;
 import com.google.api.services.calendar.model.Event;
 import com.google.api.services.calendar.model.EventDateTime;
 import com.google.api.services.calendar.model.Events;
@@ -26,32 +23,22 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.security.GeneralSecurityException;
-import java.sql.Date;
-import java.text.DateFormat;
 import java.text.ParseException;
-import java.text.SimpleDateFormat;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.regex.Pattern;
+import java.io.File;
+import java.util.regex.Matcher;
 
 import javax.swing.JFileChooser;
 import javax.swing.UIManager;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.util.Scanner;
-import java.util.TimeZone;
-import java.util.regex.Matcher;
-import java.time.LocalDateTime;
-import java.time.Year;
-import java.time.ZoneOffset;
 
 public class App {
     /**
      * Application name.
      */
-    private static final String APPLICATION_NAME = "Google Calendar API Java Quickstart";
+    private static final String APPLICATION_NAME = "Work Schedule Event Creator";
     /**
      * Global instance of the JSON factory.
      */
@@ -289,7 +276,7 @@ public class App {
         // Create the Calendar service
         Calendar service = new Calendar.Builder(HTTP_TRANSPORT, JSON_FACTORY,
                 getCredentials(HTTP_TRANSPORT))
-                .setApplicationName("applicationName").build();
+                .setApplicationName(APPLICATION_NAME).build();
 
         // Cycle through the dates and times and add them to the calendar
         for (int i = 0; i < daysWorkedCtr; i += 2) {
