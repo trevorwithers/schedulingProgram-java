@@ -21,7 +21,6 @@ import com.google.api.services.calendar.model.Events;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.text.PDFTextStripper;
 
-
 import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
@@ -44,7 +43,9 @@ import java.io.FileInputStream;
 import java.util.Scanner;
 import java.util.TimeZone;
 import java.util.regex.Matcher;
+import java.time.LocalDateTime;
 import java.time.Year;
+import java.time.ZoneOffset;
 
 public class App {
     /**
@@ -93,6 +94,27 @@ public class App {
         Credential credential = new AuthorizationCodeInstalledApp(flow, receiver).authorize("user");
         // returns an authorized Credential object.
         return credential;
+    }
+
+    public static boolean checkIfEventExists(Calendar calendarService, String calendarId, Event event)
+            throws IOException {
+        // Get a list of all events on the calendar
+        DateTime now = new DateTime(System.currentTimeMillis());
+        Events events = calendarService.events().list(calendarId)
+                .setTimeMin(now)
+                .execute();
+        List<Event> items = events.getItems();
+        boolean exists = false;
+        // Check if an event with the same title and start time exists
+        for (Event existingEvent : items) {
+            System.out.println(existingEvent.getSummary());
+            if (existingEvent.getSummary().equals(event.getSummary()) &&
+                    existingEvent.getStart().getDateTime().equals(event.getStart().getDateTime())) {
+                exists = true;
+            }
+        }
+
+        return exists;
     }
 
     private static String day;
@@ -256,28 +278,31 @@ public class App {
         Calendar service = new Calendar.Builder(HTTP_TRANSPORT, JSON_FACTORY,
                 getCredentials(HTTP_TRANSPORT))
                 .setApplicationName("applicationName").build();
-        /*
-         * for (int i = 0; i < daysWorkedCtr; i+=2) {
-         * 
-         * Event event = new Event()
-         * .setSummary("Work");
-         * 
-         * DateTime startDateTime = new DateTime(datesTimes[i]);
-         * EventDateTime starting = new EventDateTime()
-         * .setDateTime(startDateTime);
-         * event.setStart(starting);
-         * 
-         * DateTime endDateTime = new DateTime(datesTimes[i + 1]);
-         * EventDateTime ending = new EventDateTime()
-         * .setDateTime(endDateTime);
-         * event.setEnd(ending);
-         * 
-         * String calendarId = "withers.trevor@gmail.com";
-         * event = service.events().insert(calendarId, event).execute();
-         * System.out.printf("Event created: %s\n", event.getHtmlLink());
-         * 
-         * }
-         */
+
+        for (int i = 0; i < daysWorkedCtr; i += 2) {
+
+            Event event = new Event()
+                    .setSummary("Work");
+
+            DateTime startDateTime = new DateTime(datesTimes[i]);
+            EventDateTime starting = new EventDateTime()
+                    .setDateTime(startDateTime);
+            event.setStart(starting);
+
+            DateTime endDateTime = new DateTime(datesTimes[i + 1]);
+            EventDateTime ending = new EventDateTime()
+                    .setDateTime(endDateTime);
+            event.setEnd(ending);
+
+            String calendarId = "withers.trevor@gmail.com";
+
+            if (!checkIfEventExists(service, calendarId, event)) {
+                // Create the event if it doesn't exist
+                service.events().insert(calendarId, event).execute();
+            } else {
+                System.out.println("Event already exists");
+            }
+        }
     }
 
     // Method to check if the shift ends on the last day of the month
